@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Power Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+
+        .speaker-container {
+            margin-bottom: 15px;
+        }
+
+        #totalPower, #socketResult {
+            margin-top: 20px;
+        }
+
+        button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Generator Power Calculator</h2>
+
+<div id="speakersContainer">
+    <!-- Speaker input fields will be dynamically added here -->
+</div>
+
+<button onclick="addSpeaker()">Add Speaker</button>
+
+<label for="addDJSetup">Add DJ Setup:</label>
+<input type="checkbox" id="addDJSetup" onchange="calculateTotalPower()" />
+
+<button onclick="calculateTotalPower()">Calculate Total Power</button>
+
+<div id="totalPower">
+    <!-- Display total power requirement and totals for RMS, AES, and Peak -->
+</div>
+
+<button onclick="calculateSockets()">Calculate Sockets</button>
+
+<div id="socketResult">
+    <!-- Display the number of 13A, 16A, and 32A sockets needed -->
+</div>
+
+<script>
+    let speakers = []; // Array to store speaker objects;
+    let addDJSetup = false;
+
+    function addSpeaker() {
+        // Create a new speaker object with default values
+        const newSpeaker = { powerType: 'peak', value: 0 };
+
+        // Add the new speaker object to the array
+        speakers.push(newSpeaker);
+
+        // Update the display
+        displaySpeakers();
+    }
+
+    function displaySpeakers() {
+        const speakersContainer = document.getElementById("speakersContainer");
+        speakersContainer.innerHTML = "";
+
+        // Display input fields for each speaker
+        for (let i = 0; i < speakers.length; i++) {
+            const speakerDiv = document.createElement("div");
+            speakerDiv.className = "speaker-container";
+
+            speakerDiv.innerHTML = `
+                <label for="powerType${i}">Power Type:</label>
+                <select id="powerType${i}" onchange="updatePowerType(${i})">
+                    <option value="rms">RMS</option>
+                    <option value="aes">AES</option>
+                    <option value="peak">Peak</option>
+                </select>
+
+                <label for="powerValue${i}">Power Value:</label>
+                <input type="number" id="powerValue${i}" placeholder="Enter power value" value="${speakers[i].value}" />
+            `;
+
+            // Set the selected option based on the speaker's powerType
+            const powerTypeSelect = speakerDiv.querySelector(`#powerType${i}`);
+            powerTypeSelect.value = speakers[i].powerType;
+
+            speakersContainer.appendChild(speakerDiv);
+        }
+    }
+
+    function updatePowerType(index) {
+        // Update powerType for the selected speaker
+        const powerTypeSelect = document.getElementById(`powerType${index}`);
+        speakers[index].powerType = powerTypeSelect.value;
+
+        // Update the display
+        displaySpeakers();
+    }
+
+    function calculateTotalPower() {
+        // Update speaker array with user input
+        for (let i = 0; i < speakers.length; i++) {
+            speakers[i].value = parseFloat(document.getElementById(`powerValue${i}`).value) || 0;
+        }
+
+        // Update DJ setup flag
+        addDJSetup = document.getElementById("addDJSetup").checked;
+
+        // Calculate total power requirement and totals for RMS, AES, and Peak
+        const totalPower = speakers.reduce((sum, speaker) => sum + speaker.value, 0) + (addDJSetup ? 150 : 0);
+        const totalRMS = speakers.reduce((sum, speaker) => sum + convertToRMS(speaker), 0);
+        const totalAES = speakers.reduce((sum, speaker) => sum + convertToAES(speaker), 0);
+        const totalPeak = speakers.reduce((sum, speaker) => sum + convertToPeak(speaker), 0);
+
+        // Display the result
+        const totalPowerDiv = document.getElementById("totalPower");
+        totalPowerDiv.innerHTML = `
+            <p>Minimum Generator Power Requirement: ${totalPower.toFixed(2)} watts</p>
+            <p>Total RMS Power: ${totalRMS.toFixed(2)} watts</p>
+            <p>Total AES Power: ${totalAES.toFixed(2)} watts</p>
+            <p>Total Peak Power: ${totalPeak.toFixed(2)} watts</p>
+        `;
+    }
+
+    function calculateSockets() {
+        // Calculate the number of sockets needed for 13A, 16A, and 32A
+        const totalPeakPower = speakers.reduce((sum, speaker) => sum + convertToPeak(speaker), 0) + (addDJSetup ? 150 : 0);
+        const sockets13A = calculateSocketsForRating(13, totalPeakPower);
+        const sockets16A = calculateSocketsForRating(16, totalPeakPower);
+        const sockets32A = calculateSocketsForRating(32, totalPeakPower);
+
+        // Display the result
+        const socketResultDiv = document.getElementById("socketResult");
+        socketResultDiv.innerHTML = `
+            <p>Number of 13A Sockets Needed: ${sockets13A}</p>
+            <p>Number of 16A Sockets Needed: ${sockets16A}</p>
+            <p>Number of 32A Sockets Needed: ${sockets32A}</p>
+        `;
+    }
+
+    function calculateSocketsForRating(rating, totalPower) {
+        return Math.ceil(totalPower / (rating * 240));
+    }
+
+    function convertToRMS(speaker) {
+        if (speaker.powerType === 'rms') {
+            return speaker.value;
+        } else if (speaker.powerType === 'aes') {
+            return speaker.value / 1.3;
+        } else {
+            return speaker.value * 0.7071;
+        }
+    }
+
+    function convertToAES(speaker) {
+        if (speaker.powerType === 'rms') {
+            return speaker.value * 1.3;
+        } else if (speaker.powerType === 'aes') {
+            return speaker.value;
+        } else {
+            return (speaker.value * 1.3) / 1.4142;
+        }
+    }
+
+    function convertToPeak(speaker) {
+        if (speaker.powerType === 'rms') {
+            return speaker.value * 1.4142;
+        } else if (speaker.powerType === 'aes') {
+            return (speaker.value * 1.3) / 1.4142;
+        } else {
+            return speaker.value;
+        }
+    }
+</script>
+
+</body>
+</html>
